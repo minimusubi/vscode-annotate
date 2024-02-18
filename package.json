@@ -2,7 +2,12 @@
   "name": "annotate",
   "displayName": "annotate",
   "description": "Parse custom @annotate text to colorize any text within a document",
-  "version": "0.0.1",
+  "publisher": "darsto",
+  "version": "0.0.2",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/darsto/vscode-annotate"
+  },
   "engines": {
     "vscode": "^1.86.0"
   },
