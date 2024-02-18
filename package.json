@@ -1,7 +1,7 @@
 {
-  "name": "annotate-me",
-  "displayName": "annotate-me",
-  "description": "Parse custom @annotate comments to colorize any text within a document",
+  "name": "annotate",
+  "displayName": "annotate",
+  "description": "Parse custom @annotate text to colorize any text within a document",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.86.0"
@@ -14,86 +14,96 @@
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "configuration": {
+      "title": "Annotate",
+      "properties": {
+        "annotate.defaultCommentPrefix": {
+          "type": "string",
+          "default": "> ",
+          "description": "Prefix to be used when inserting automatic annotations."
+        }
+      }
+    },
     "commands": [
       {
-        "command": "annotate-me.annotate",
+        "command": "annotate.annotate",
         "title": "Annotate current selection"
       }
     ],
-		"colors": [
-			{
-				"id": "annotate_me.defaultColor0",
-				"description": "Default background decoration color for the first annotation per line",
-				"defaults": {
-					"dark": "#FF000055",
-					"light": "#FF000055",
-					"highContrast": "#FF000055"
-				}
-			},
-			{
-				"id": "annotate_me.defaultColor1",
-				"description": "Default background decoration color for the first annotation per line",
-				"defaults": {
-					"dark": "#00ff0055",
-					"light": "#00ff0055",
-					"highContrast": "#00ff0055"
-				}
-			},
-			{
-				"id": "annotate_me.defaultColor2",
-				"description": "Default background decoration color for the first annotation per line",
-				"defaults": {
-					"dark": "#0066ff55",
-					"light": "#0066ff55",
-					"highContrast": "#0066ff55"
-				}
-			},
-			{
-				"id": "annotate_me.defaultColor3",
-				"description": "Default background decoration color for the first annotation per line",
-				"defaults": {
-					"dark": "#e5ff0055",
-					"light": "#e5ff0055",
-					"highContrast": "#e5ff0055"
-				}
-			},
-			{
-				"id": "annotate_me.defaultColor4",
-				"description": "Default background decoration color for the first annotation per line",
-				"defaults": {
-					"dark": "#00ffbf55",
-					"light": "#00ffbf55",
-					"highContrast": "#00ffbf55"
-				}
-			},
-			{
-				"id": "annotate_me.defaultColor5",
-				"description": "Default background decoration color for the first annotation per line",
-				"defaults": {
-					"dark": "#b700ff55",
-					"light": "#b700ff55",
-					"highContrast": "#b700ff55"
-				}
-			},
-			{
-				"id": "annotate_me.defaultColor6",
-				"description": "Default background decoration color for the first annotation per line",
-				"defaults": {
-					"dark": "#00ffff55",
-					"light": "#00ffff55",
-					"highContrast": "#00ffff55"
-				}
-			},
-			{
-				"id": "annotate_me.defaultColor7",
-				"description": "Default background decoration color for the first annotation per line",
-				"defaults": {
-					"dark": "#ff910055",
-					"light": "#ff910055",
-					"highContrast": "#ff910055"
-				}
-			}
-		]
+    "colors": [
+      {
+        "id": "annotate.defaultColor0",
+        "description": "Default background decoration color for the nth annotation per line",
+        "defaults": {
+          "dark": "#ff000055",
+          "light": "#ff000055",
+          "highContrast": "#ff000055"
+        }
+      },
+      {
+        "id": "annotate.defaultColor1",
+        "description": "Default background decoration color for the nth annotation per line",
+        "defaults": {
+          "dark": "#00ff0055",
+          "light": "#00ff0055",
+          "highContrast": "#00ff0055"
+        }
+      },
+      {
+        "id": "annotate.defaultColor2",
+        "description": "Default background decoration color for the nth annotation per line",
+        "defaults": {
+          "dark": "#0066ff55",
+          "light": "#0066ff55",
+          "highContrast": "#0066ff55"
+        }
+      },
+      {
+        "id": "annotate.defaultColor3",
+        "description": "Default background decoration color for the nth annotation per line",
+        "defaults": {
+          "dark": "#e5ff0055",
+          "light": "#e5ff0055",
+          "highContrast": "#e5ff0055"
+        }
+      },
+      {
+        "id": "annotate.defaultColor4",
+        "description": "Default background decoration color for the nth annotation per line",
+        "defaults": {
+          "dark": "#00ffbf55",
+          "light": "#00ffbf55",
+          "highContrast": "#00ffbf55"
+        }
+      },
+      {
+        "id": "annotate.defaultColor5",
+        "description": "Default background decoration color for the nth annotation per line",
+        "defaults": {
+          "dark": "#b700ff55",
+          "light": "#b700ff55",
+          "highContrast": "#b700ff55"
+        }
+      },
+      {
+        "id": "annotate.defaultColor6",
+        "description": "Default background decoration color for the nth annotation per line",
+        "defaults": {
+          "dark": "#00ffff55",
+          "light": "#00ffff55",
+          "highContrast": "#00ffff55"
+        }
+      },
+      {
+        "id": "annotate.defaultColor7",
+        "description": "Default background decoration color for the nth annotation per line",
+        "defaults": {
+          "dark": "#ff910055",
+          "light": "#ff910055",
+          "highContrast": "#ff910055"
+        }
+      }
+    ]
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
