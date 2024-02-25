@@ -89,6 +89,77 @@ function addAnnotations(linePos: vscode.Position, annotations: Annotation[], cfg
 	}
 }
 
+function parseDocument(editor: vscode.TextEditor, currentCfg: AnnotationCfg, startLine: number, endLine: number, addAnnotationsFn: Function) {
+	let pendingAnnotations: Annotation[] = [];
+	let lastNonCommentLinePos: vscode.Position | undefined;
+	let parser = new Parser();
+
+	for (let i = startLine; i < endLine; i++) {
+		const line = editor.document.lineAt(i);
+		const firstChar = line.text[line.firstNonWhitespaceCharacterIndex];
+		if (annotationCommentCharacters.includes(firstChar)) {
+			const re = new RegExp(annotationRegEx, annotationRegEx.flags);
+			const match = re.exec(line.text);
+			if (match?.length && match?.length > 3) {
+				if (match.length >= 3) {
+					pendingAnnotations.push({ start: parseInt(match[1]), end: parseInt(match[2]), color: match[3], text: match[4] });
+				}
+			} else {
+				let matchidx = line.text.indexOf(annotationCfgPrefix);
+				if (matchidx >= 0) {
+					let opts_string = line.text.substring(matchidx + annotationCfgPrefix.length);
+					const opt_re = new RegExp(annotationCfgOptRegEx, annotationCfgOptRegEx.flags);
+
+					let match;
+					while (match = opt_re.exec(opts_string)) {
+						let key = match[1];
+						let value = match[2];
+
+						try {
+							switch (key) {
+								case "rangeFn": {
+									const rangeFnRegEx = /{(.*)}/;
+									let matches = rangeFnRegEx.exec(value);
+									if (matches) {
+										currentCfg.rangeFn = parser.parse(matches[1]);
+									}
+									break;
+								}
+								case "clamp": {
+									const clampRegEx = /\[([0-9]+)\s*[-,]\s*([0-9]+)\]/;
+									let matches = clampRegEx.exec(value);
+									if (matches) {
+										currentCfg.clamp = [parseInt(matches[1]), parseInt(matches[2])];
+									}
+									break;
+								}
+								default:
+									pendingAnnotations.push({ start: 0, end: 9999, color: "red", text: "Unknown field: " + key });
+									break;
+							}
+
+						} catch (e) {
+							let err = e as Error;
+							pendingAnnotations.push({ start: 0, end: 9999, color: "red", text: "Error: " + err });
+						}
+					}
+				}
+			}
+		} else {
+			if (lastNonCommentLinePos && pendingAnnotations.length > 0) {
+				addAnnotationsFn(lastNonCommentLinePos, pendingAnnotations, currentCfg);
+				pendingAnnotations.length = 0;
+			}
+
+			lastNonCommentLinePos = line.range.start;
+		}
+	}
+
+	if (lastNonCommentLinePos && pendingAnnotations.length > 0) {
+		addAnnotationsFn(lastNonCommentLinePos, pendingAnnotations, currentCfg);
+	}
+}
+
 export function activate(context: vscode.ExtensionContext) {
 	let activeEditor = vscode.window.activeTextEditor;
 
@@ -114,8 +185,45 @@ export function activate(context: vscode.ExtensionContext) {
 				// Multi line snippets are currently not supported, just use the rest of first line
 				snippetEndCharacter = activeEditor.document.lineAt(selectionLine).text.length;
 			}
-			const selectionRange = new vscode.Range(selectionLine, snippetStartCharacter, selectionLine, snippetEndCharacter);
-			snippet = new vscode.SnippetString(`${defaultCommentPrefix}@annotate [${snippetStartCharacter}-${snippetEndCharacter}] $0\n`);
+
+			// get the cfg at that particular line
+			let cfg: AnnotationCfg = {};
+			parseDocument(activeEditor, cfg, 0, selectionLine, () => {});
+
+			// get matching column numbers for the current cfg
+			// since it's not a big deal, just find a proper value by brute force
+			// also, assume there are less columns than characters
+			let startColumnIdx = 0;
+			for (; startColumnIdx < snippetStartCharacter; startColumnIdx++) {
+				if (cfg.rangeFn) {
+					let ctx = { start: startColumnIdx, end: startColumnIdx };
+					cfg.rangeFn.evaluate(ctx);
+					if (ctx.start >= snippetStartCharacter) {
+						break;
+					}
+
+				} else {
+					startColumnIdx = snippetStartCharacter;
+					break;
+				}
+			}
+			let endColumnIdx = 0;
+			for (; endColumnIdx <= snippetEndCharacter; endColumnIdx++) {
+				if (cfg.rangeFn) {
+					let ctx = { start: endColumnIdx, end: endColumnIdx };
+					cfg.rangeFn.evaluate(ctx);
+					if (ctx.end > snippetEndCharacter) {
+						endColumnIdx -= 1;
+						break;
+					}
+
+				} else {
+					endColumnIdx = snippetEndCharacter;
+					break;
+				}
+			}
+
+			snippet = new vscode.SnippetString(`${defaultCommentPrefix}@annotate [${startColumnIdx}-${endColumnIdx}] $0\n`);
 		}
 
 		// insert the annotation after any existing annotations to prevent changing their colors
@@ -170,75 +278,8 @@ export function activate(context: vscode.ExtensionContext) {
 			return;
 		}
 
-		let pendingAnnotations: Annotation[] = [];
-		let lastNonCommentLinePos: vscode.Position | undefined;
 		let currentCfg: AnnotationCfg = {};
-		let parser = new Parser();
-
-		for (let i = 0; i < activeEditor.document.lineCount; i++) {
-			const line = activeEditor.document.lineAt(i);
-			const firstChar = line.text[line.firstNonWhitespaceCharacterIndex];
-			if (annotationCommentCharacters.includes(firstChar)) {
-				const re = new RegExp(annotationRegEx, annotationRegEx.flags);
-				const match = re.exec(line.text);
-				if (match?.length && match?.length > 3) {
-					if (match.length >= 3) {
-						pendingAnnotations.push({ start: parseInt(match[1]), end: parseInt(match[2]), color: match[3], text: match[4] });
-					}
-				} else {
-					let matchidx = line.text.indexOf(annotationCfgPrefix);
-					if (matchidx >= 0) {
-						let opts_string = line.text.substring(matchidx + annotationCfgPrefix.length);
-						const opt_re = new RegExp(annotationCfgOptRegEx, annotationCfgOptRegEx.flags);
-
-						let match;
-						while (match = opt_re.exec(opts_string)) {
-							let key = match[1];
-							let value = match[2];
-
-							try {
-								switch (key) {
-									case "rangeFn": {
-										const rangeFnRegEx = /{(.*)}/;
-										let matches = rangeFnRegEx.exec(value);
-										if (matches) {
-											currentCfg.rangeFn = parser.parse(matches[1]);
-										}
-										break;
-									}
-									case "clamp": {
-										const clampRegEx = /\[([0-9]+)\s*[-,]\s*([0-9]+)\]/;
-										let matches = clampRegEx.exec(value);
-										if (matches) {
-											currentCfg.clamp = [parseInt(matches[1]), parseInt(matches[2])];
-										}
-										break;
-									}
-									default:
-										pendingAnnotations.push({ start: 0, end: 9999, color: "red", text: "Unknown field: " + key });
-										break;
-								}
-
-							} catch (e) {
-								let err = e as Error;
-								pendingAnnotations.push({ start: 0, end: 9999, color: "red", text: "Error: " + err });
-							}
-						}
-					}
-				}
-			} else {
-				if (lastNonCommentLinePos && pendingAnnotations.length > 0) {
-					addAnnotations(lastNonCommentLinePos, pendingAnnotations, currentCfg);
-					pendingAnnotations.length = 0;
-				}
-
-				lastNonCommentLinePos = line.range.start;
-			}
-		}
-
-		if (lastNonCommentLinePos && pendingAnnotations.length > 0) {
-			addAnnotations(lastNonCommentLinePos, pendingAnnotations, currentCfg);
-		}
+		parseDocument(activeEditor, currentCfg, 0, activeEditor.document.lineCount, addAnnotations);
 
 		for (const [type, decorations] of decorationsByType) {
 			activeEditor.setDecorations(type, decorations);
