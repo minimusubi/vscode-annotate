@@ -181,7 +181,7 @@ export function activate(context: vscode.ExtensionContext) {
 		} else {
 			let snippetStartCharacter = selection.start.character;
 			let snippetEndCharacter = selection.end.character;
-			if (selection.start.line != selection.end.line) {
+			if (selection.start.line !== selection.end.line) {
 				// Multi line snippets are currently not supported, just use the rest of first line
 				snippetEndCharacter = activeEditor.document.lineAt(selectionLine).text.length;
 			}
@@ -256,7 +256,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 				if (annotationCommentCharacters.includes(firstChar) && annotationRegEx.test(line.text)) {
 					if (annotatedLineNo === undefined) {
-						annotatedLineNo = i == 0 ? 0 : i - 1;
+						annotatedLineNo = i === 0 ? 0 : i - 1;
 					}
 				} else if (annotatedLineNo !== undefined) {
 					folds.push(new vscode.FoldingRange(annotatedLineNo, i - 1, vscode.FoldingRangeKind.Comment));
@@ -292,7 +292,7 @@ export function activate(context: vscode.ExtensionContext) {
 				// remove from the global map so we're not leaking memory
 				decorationsByType.delete(type);
 				for (const [icolor, itype] of decorationTypeByColor) {
-					if (itype == type) {
+					if (itype === type) {
 						decorationTypeByColor.delete(icolor);
 					}
 				}
