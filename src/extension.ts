@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { Parser, Expression } from 'expr-eval';
 
 // A single parsed annotation
 // > @annotate [<start> - <end>] [<color>] <text>
@@ -15,7 +16,7 @@ interface Annotation {
 // > @annotate-cfg [rangeFn = { start = 8 + start * 3 - 1; end = 8 + end * 3 - 2 }]
 interface AnnotationCfg {
 	clamp?: [number, number];
-	rangeFn: Function,
+	rangeFn?: Expression,
 }
 
 const decorationTypeByColor = new Map<string, vscode.TextEditorDecorationType>();
@@ -45,7 +46,11 @@ function addAnnotations(linePos: vscode.Position, annotations: Annotation[], cfg
 	let defColorIdx = 0;
 	for (let anno of annotations) {
 		try {
-			[anno.start, anno.end] = cfg.rangeFn(anno.start, anno.end);
+			if (cfg.rangeFn) {
+				let ctx = { start: anno.start, end: anno.end };
+				cfg.rangeFn.evaluate(ctx);
+				[anno.start, anno.end] = [ctx.start, ctx.end];
+			}
 			if (cfg.clamp) {
 				anno.start = Math.max(anno.start, cfg.clamp[0]);
 				anno.end = Math.min(anno.end, cfg.clamp[1]);
@@ -167,9 +172,8 @@ export function activate(context: vscode.ExtensionContext) {
 
 		let pendingAnnotations: Annotation[] = [];
 		let lastNonCommentLinePos: vscode.Position | undefined;
-		let currentCfg: AnnotationCfg = {
-			rangeFn: new Function('start', 'end', 'return [start, end]'),
-		};
+		let currentCfg: AnnotationCfg = {};
+		let parser = new Parser();
 
 		for (let i = 0; i < activeEditor.document.lineCount; i++) {
 			const line = activeEditor.document.lineAt(i);
@@ -195,11 +199,19 @@ export function activate(context: vscode.ExtensionContext) {
 							try {
 								switch (key) {
 									case "rangeFn": {
-										currentCfg.rangeFn = new Function('start', 'end', value + '; return [start, end]');
+										const rangeFnRegEx = /{(.*)}/;
+										let matches = rangeFnRegEx.exec(value);
+										if (matches) {
+											currentCfg.rangeFn = parser.parse(matches[1]);
+										}
 										break;
 									}
 									case "clamp": {
-										currentCfg.clamp = (new Function('return ' + value))()
+										const clampRegEx = /\[([0-9]+)\s*[-,]\s*([0-9]+)\]/;
+										let matches = clampRegEx.exec(value);
+										if (matches) {
+											currentCfg.clamp = [parseInt(matches[1]), parseInt(matches[2])];
+										}
 										break;
 									}
 									default:

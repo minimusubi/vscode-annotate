@@ -31,9 +31,9 @@ Currently the following configuration options can be set:
 
 - disables annotations before `<start_column>` and after `<end_column>`.
 
-> \> @annotate-cfg [rangeFn = { \<any javascript here to modify `start` and `end` parameters\> }]
+> \> @annotate-cfg [rangeFn = { start = 6 + start * 3; end = 6 + end * 3 - 1 }]
 
-- execute any javascript to modify `start` and `end` column numbers in `@annotate`. This effectively allows mapping those values to any other column numbers. Also Note: this runs any user-provided javascript code with `new Function()`.
+- map `start` and `end` column numbers in `@annotate` to any other value. This uses [expr-eval](https://github.com/silentmatt/expr-eval) library for safe evaluation. See the link for a list of supported operations and built-in arithmetic functions.
 
 # Remarks
 
