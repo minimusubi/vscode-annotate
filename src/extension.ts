@@ -19,8 +19,12 @@ interface AnnotationCfg {
 	rangeFn?: Expression,
 }
 
+// Global storage for all vscode.TextEditorDecorationType, mapped by a short color
+// string. This is shared across all editors, so we can nuke all decorations when
+// deactivating the extension.
 const decorationTypeByColor = new Map<string, vscode.TextEditorDecorationType>();
-const decorationsByType = new Map<vscode.TextEditorDecorationType, vscode.DecorationOptions[]>();
+type DecorationsMap = Map<vscode.TextEditorDecorationType, vscode.DecorationOptions[]>;
+
 // For early optimization, only parse the regex on lines starting with those
 // characters (first non whitespace character)
 const annotationCommentCharacters = ['/', '#', '*', '@', '>'];
@@ -42,7 +46,7 @@ function createDecoration(color: string): vscode.TextEditorDecorationType {
 	});
 }
 
-function addAnnotations(linePos: vscode.Position, annotations: Annotation[], cfg: AnnotationCfg) {
+function addAnnotations(decorationsMap: DecorationsMap, linePos: vscode.Position, annotations: Annotation[], cfg: AnnotationCfg) {
 	let defColorIdx = 0;
 	for (let anno of annotations) {
 		try {
@@ -79,12 +83,15 @@ function addAnnotations(linePos: vscode.Position, annotations: Annotation[], cfg
 
 		let decorationType = decorationTypeByColor.get(color);
 		if (!decorationType) {
-			decorationTypeByColor.set(color, createDecoration(color));
-			decorationType = decorationTypeByColor.get(color)!;
-			decorationsByType.set(decorationType, []);
+			decorationType = createDecoration(color);
+			decorationTypeByColor.set(color, decorationType);
 		}
-		let decorations = decorationsByType.get(decorationType)!;
-		decorations.push(decoration);
+		let decorationsArr = decorationsMap.get(decorationType)!;
+		if (!decorationsArr) {
+			decorationsArr = [];
+			decorationsMap.set(decorationType, decorationsArr);
+		}
+		decorationsArr.push(decoration);
 		defColorIdx = ((defColorIdx + 1) % 8);
 	}
 }
@@ -162,6 +169,10 @@ function parseDocument(editor: vscode.TextEditor, currentCfg: AnnotationCfg, sta
 
 export function activate(context: vscode.ExtensionContext) {
 	let activeEditor = vscode.window.activeTextEditor;
+	// per-editor (weak!) map of decorations. This could be in the global scope,
+	// but when we get de-activated we want to drop all of this memory even if the
+	// corresponding editors still exist.
+	const decorationsMapByEditor = new WeakMap<vscode.TextEditor, DecorationsMap>();
 
 	// The automatic annotate command
 	let disposable = vscode.commands.registerCommand('annotate.annotate', () => {
@@ -278,19 +289,29 @@ export function activate(context: vscode.ExtensionContext) {
 			return;
 		}
 
+		let decorationsMap = decorationsMapByEditor.get(activeEditor);
+		if (!decorationsMap) {
+			decorationsMap = new Map<vscode.TextEditorDecorationType, vscode.DecorationOptions[]>();
+			decorationsMapByEditor.set(activeEditor, decorationsMap);
+		}
 		let currentCfg: AnnotationCfg = {};
-		parseDocument(activeEditor, currentCfg, 0, activeEditor.document.lineCount, addAnnotations);
 
-		for (const [type, decorations] of decorationsByType) {
+		let addAnnotationsFn = (linePos: vscode.Position, annotations: Annotation[], cfg: AnnotationCfg) => {
+			addAnnotations(decorationsMap!, linePos, annotations, cfg);
+		};
+
+		parseDocument(activeEditor, currentCfg, 0, activeEditor.document.lineCount, addAnnotationsFn);
+
+		for (const [type, decorations] of decorationsMap!) {
 			activeEditor.setDecorations(type, decorations);
 
 			// prepare for the next iterations
 			if (decorations.length > 0) {
 				// make sure this decoration is cleared on next run
-				decorationsByType.set(type, []);
+				decorationsMap!.set(type, []);
 			} else {
 				// remove from the global map so we're not leaking memory
-				decorationsByType.delete(type);
+				decorationsMap!.delete(type);
 				for (const [icolor, itype] of decorationTypeByColor) {
 					if (itype === type) {
 						decorationTypeByColor.delete(icolor);
@@ -335,12 +356,10 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 export function deactivate() {
-	let activeEditor = vscode.window.activeTextEditor;
-
-	for (const [type, decorations] of decorationsByType) {
-		activeEditor?.setDecorations(type, []);
+	// remove all decorations across all editors
+	for (const type of decorationTypeByColor.values()) {
+		type.dispose();
 	}
 
 	decorationTypeByColor.clear();
-	decorationsByType.clear();
 }
