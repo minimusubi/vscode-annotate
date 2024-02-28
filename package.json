@@ -1,8 +1,9 @@
 {
   "name": "annotate",
   "displayName": "annotate",
-  "description": "Parse custom @annotate text to colorize any text within a document",
+  "description": "Parse custom @annotate comments to colorize any text within a document",
   "publisher": "darsto",
+  "icon": "images/icon.png",
   "version": "0.0.5",
   "repository": {
     "type": "git",
