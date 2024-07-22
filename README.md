@@ -3,6 +3,7 @@
 Parse custom `@annotate` text to colorize any text within a document.
 
 > \> @annotate [\<start_column\> - \<end_column\>] \<text\>
+> \> @annotate [\<single_column\>] \<text\>
 
 ![annotate1.jpg](images/annotate1.jpg)
 

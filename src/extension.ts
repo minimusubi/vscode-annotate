@@ -28,7 +28,7 @@ type DecorationsMap = Map<vscode.TextEditorDecorationType, vscode.DecorationOpti
 // For early optimization, only parse the regex on lines starting with those
 // characters (first non whitespace character)
 const annotationCommentCharacters = ['/', '#', '*', '@', '>'];
-const annotationRegEx = /\@annotate\s*\[([0-9]+)\s*\-\s*([0-9]+)\]\s*(?:\[([#a-zA-Z0-9]+)\])?\s*(.*)/;
+const annotationRegEx = /\@annotate\s*\[([0-9]+)(?:\s*\-\s*([0-9]+))?\]\s*(?:\[([#a-zA-Z0-9]+)\])?\s*(.*)/;
 const annotationCfgPrefix = '@annotate-cfg';
 const annotationCfgOptRegEx = /\[\s*(.*?)\s*=\s*(.*)\s*\]/g;
 
@@ -109,7 +109,12 @@ function parseDocument(editor: vscode.TextEditor, currentCfg: AnnotationCfg, sta
 			const match = re.exec(line.text);
 			if (match?.length && match?.length > 3) {
 				if (match.length >= 3) {
-					pendingAnnotations.push({ start: parseInt(match[1]), end: parseInt(match[2]), color: match[3], text: match[4] });
+					const start = parseInt(match[1]);
+					let end = parseInt(match[2]);
+					if (isNaN(end)) {
+						end = start + 1;
+					}
+					pendingAnnotations.push({ start, end, color: match[3], text: match[4] });
 				}
 			} else {
 				let matchidx = line.text.indexOf(annotationCfgPrefix);
