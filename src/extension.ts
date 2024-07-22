@@ -79,7 +79,11 @@ function addAnnotations(decorationsMap: DecorationsMap, linePos: vscode.Position
 			markdown.isTrusted = true;
 			decoration.hoverMessage = markdown;
 		}
-		let color = anno.color || ('default' + defColorIdx);
+		let color = anno.color;
+		if (color === undefined) {
+			color = 'default' + defColorIdx;
+			defColorIdx = ((defColorIdx + 1) % 8);
+		}
 
 		let decorationType = decorationTypeByColor.get(color);
 		if (!decorationType) {
@@ -92,7 +96,6 @@ function addAnnotations(decorationsMap: DecorationsMap, linePos: vscode.Position
 			decorationsMap.set(decorationType, decorationsArr);
 		}
 		decorationsArr.push(decoration);
-		defColorIdx = ((defColorIdx + 1) % 8);
 	}
 }
 
